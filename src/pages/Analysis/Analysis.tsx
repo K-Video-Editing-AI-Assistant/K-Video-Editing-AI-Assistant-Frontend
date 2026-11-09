@@ -16,12 +16,19 @@ function Analysis() {
   useEffect(() => {
     // Temporary: pretend the analysis is running. Replace with real backend progress later.
     const timer = setInterval(() => {
-      setProgress((current) => Math.min(current + 2, 95));
+      setProgress((current) => Math.min(current + 5, 100));
     }, 300);
 
     // Cleanup: stop the timer when leaving this page
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    // When the analysis finishes, move on to the next step
+    if (progress >= 100) {
+      navigate('/request');
+    }
+  }, [progress, navigate]);
 
   // No video (e.g. the page was refreshed or opened directly): go back to the upload step
   if (!file) {
