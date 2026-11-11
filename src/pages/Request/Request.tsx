@@ -38,8 +38,7 @@ function Request() {
           이전 단계
         </Button>
       }
-      // TODO: connect to the next page (04) after it is built
-      rightAction={<Button>추천 구간 생성</Button>}
+      rightAction={<Button onClick={() => navigate('/segments')}>추천 구간 생성</Button>}
     >
       <div className='flex flex-col gap-6'>
         {/* AI analysis result */}

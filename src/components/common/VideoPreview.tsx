@@ -1,10 +1,13 @@
 import { useEffect, useRef } from 'react';
+import clsx from 'clsx';
 
 type VideoPreviewProps = {
   file: File; // The video to show
+  startAt?: number; // Which second to show as the still image (default 0.1)
+  className?: string; // Size and shape. Defaults to a 16:9 box with rounded corners.
 };
 
-function VideoPreview({ file }: VideoPreviewProps) {
+function VideoPreview({ file, startAt = 0.1, className }: VideoPreviewProps) {
   // Points to the <video> element so we can give it the file below
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -14,19 +17,19 @@ function VideoPreview({ file }: VideoPreviewProps) {
 
     // A temporary address that lets the <video> element read the local file
     const url = URL.createObjectURL(file);
-    // "#t=0.1" asks the browser to show the frame at 0.1 seconds as a still image
-    video.src = `${url}#t=0.1`;
+    // "#t=" asks the browser to show the frame at that second as a still image
+    video.src = `${url}#t=${startAt}`;
 
     // Cleanup: free the temporary address when the file changes or the page closes
     return () => URL.revokeObjectURL(url);
-  }, [file]);
+  }, [file, startAt]);
 
   return (
     <video
       ref={videoRef}
       muted
       preload='metadata'
-      className='aspect-video w-full rounded-2xl bg-surface object-cover'
+      className={clsx('bg-surface object-cover', className ?? 'aspect-video w-full rounded-2xl')}
     />
   );
 }
