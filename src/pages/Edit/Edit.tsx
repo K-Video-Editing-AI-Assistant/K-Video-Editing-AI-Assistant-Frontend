@@ -41,8 +41,11 @@ function Edit() {
           구간 다시 선택
         </Button>
       }
-      // TODO: connect to the next page (06) after it is built
-      rightAction={<Button disabled={editSegments.length === 0}>영상 만들기</Button>}
+      rightAction={
+        <Button disabled={editSegments.length === 0} onClick={() => navigate('/download')}>
+          영상 만들기
+        </Button>
+      }
     >
       <div className='flex gap-6 pb-8'>
         {/* Left: player and the numbers of the current segment */}
