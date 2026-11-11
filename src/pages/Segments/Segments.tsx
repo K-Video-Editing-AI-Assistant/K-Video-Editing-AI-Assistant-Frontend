@@ -15,6 +15,7 @@ function Segments() {
   const toggleSelected = useSegmentStore((state) => state.toggleSelected);
   const selectAll = useSegmentStore((state) => state.selectAll);
   const clearSelection = useSegmentStore((state) => state.clearSelection);
+  const startEdit = useSegmentStore((state) => state.startEdit);
 
   // No video (e.g. the page was refreshed): go back to the upload step
   if (!file) {
@@ -45,8 +46,16 @@ function Segments() {
           <Button variant='accentText' disabled={!hasSelection}>
             선택 영상 다운로드
           </Button>
-          {/* TODO: connect to the next page (05) after it is built */}
-          <Button disabled={!hasSelection}>선택 영상 합치기</Button>
+          <Button
+            disabled={!hasSelection}
+            onClick={() => {
+              // Copy the ticked segments into the edit list, then move on
+              startEdit();
+              navigate('/edit');
+            }}
+          >
+            선택 영상 합치기
+          </Button>
         </>
       }
     >
