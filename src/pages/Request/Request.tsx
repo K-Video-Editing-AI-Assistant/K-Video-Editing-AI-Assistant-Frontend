@@ -13,9 +13,6 @@ const LENGTH_OPTIONS: { value: TargetLength; label: string }[] = [
   { value: 'none', label: '길이 제한 없음' },
 ];
 
-// Placeholder topic. It will come from the backend analysis result later.
-const AI_TOPIC = '탄소 흡수와 숲의 역할';
-
 function Request() {
   const navigate = useNavigate();
   const file = useUploadStore((state) => state.file);
@@ -41,12 +38,6 @@ function Request() {
       rightAction={<Button onClick={() => navigate('/segments')}>추천 구간 생성</Button>}
     >
       <div className='flex flex-col gap-6'>
-        {/* AI analysis result */}
-        <div className='flex h-20 items-center gap-4 rounded-xl bg-surface px-4'>
-          <span className='text-base font-bold text-muted'>AI 분석 결과</span>
-          <span className='text-section font-bold'>{AI_TOPIC}</span>
-        </div>
-
         <section className='flex flex-col gap-4'>
           <label htmlFor='scene-request' className='text-section font-bold'>
             찾을 장면을 직접 입력하세요
