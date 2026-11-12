@@ -37,23 +37,23 @@ function Request() {
       }
       rightAction={<Button onClick={() => navigate('/segments')}>추천 구간 생성</Button>}
     >
-      <div className='flex flex-col gap-6'>
+      <div className='flex flex-col gap-15 pb-12'>
         <section className='flex flex-col gap-4'>
           <label htmlFor='scene-request' className='text-section font-bold'>
             찾을 장면을 직접 입력하세요
           </label>
 
-          <div className='flex gap-6'>
+          <div className='flex flex-col gap-6 lg:flex-row lg:items-end'>
             <textarea
               id='scene-request'
               value={requestText}
               onChange={(event) => setRequestText(event.target.value)}
               placeholder='예: 탄소를 흡수하는 원리를 설명하는 부분'
-              className='h-50 flex-1 resize-none rounded-xl border border-subtle bg-bg p-6 text-section font-bold placeholder:text-muted'
+              className='h-65 w-full min-w-0 resize-none rounded-xl border border-subtle bg-bg p-6 text-section font-bold placeholder:text-muted lg:flex-1'
             />
 
             {/* Target length picker */}
-            <div className='flex w-96 flex-col gap-4 rounded-2xl border border-line bg-surface p-4'>
+            <div className='flex w-full shrink-0 flex-col gap-4 rounded-2xl border border-line bg-surface p-4 lg:w-96'>
               <h2 className='text-center text-section font-bold'>직접 선택할 목표 길이</h2>
               {LENGTH_OPTIONS.map((option) => (
                 <OptionButton
