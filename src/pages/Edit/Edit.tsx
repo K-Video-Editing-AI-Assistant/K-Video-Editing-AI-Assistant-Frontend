@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
+import GeneratingModal from '@/components/common/GeneratingModal';
 import SegmentOrderItem from '@/components/common/SegmentOrderItem';
 import SegmentPlayer from '@/components/common/SegmentPlayer';
 import StepLayout from '@/components/layouts/StepLayout';
@@ -21,6 +22,23 @@ function Edit() {
   // The segment the user clicked in the list (null = none clicked yet)
   const [activeId, setActiveId] = useState<string | null>(null);
 
+  // Fake progress for making the video. Replace with real progress when the backend is ready.
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [progress, setProgress] = useState(0);
+
+  // While generating, raise the progress by 5 every 0.3 seconds
+  useEffect(() => {
+    if (!isGenerating) return;
+    const timer = setInterval(() => setProgress((value) => Math.min(value + 5, 100)), 300);
+    // Cleanup: stop the timer when generating stops or the page closes
+    return () => clearInterval(timer);
+  }, [isGenerating]);
+
+  // At 100%, move on to the download step
+  useEffect(() => {
+    if (isGenerating && progress >= 100) navigate('/download');
+  }, [isGenerating, progress, navigate]);
+
   // No video (e.g. the page was refreshed): go back to the upload step
   if (!file) {
     return <Navigate to='/upload' replace />;
@@ -32,6 +50,12 @@ function Edit() {
   const activeSegment = editSegments.find((segment) => segment.id === activeId) ?? editSegments[0];
   const activeIndex = activeSegment ? editSegments.indexOf(activeSegment) : -1;
 
+  const totalSeconds = editSegments.reduce(
+    (sum, segment) => sum + (segment.end - segment.start),
+    0,
+  );
+  const resultName = `${file.name.replace(/\.[^.]+$/, '')}_편집본.mp4`;
+
   return (
     <StepLayout
       currentStep={5}
@@ -42,7 +66,7 @@ function Edit() {
         </Button>
       }
       rightAction={
-        <Button disabled={editSegments.length === 0} onClick={() => navigate('/download')}>
+        <Button disabled={editSegments.length === 0} onClick={() => setIsGenerating(true)}>
           영상 만들기
         </Button>
       }
@@ -137,6 +161,19 @@ function Edit() {
           )}
         </div>
       </div>
+      {isGenerating && (
+        <GeneratingModal
+          fileName={resultName}
+          segmentCount={editSegments.length}
+          totalSeconds={totalSeconds}
+          progress={progress}
+          onClose={() => {
+            // Cancel: stop the fake progress and close the modal
+            setIsGenerating(false);
+            setProgress(0);
+          }}
+        />
+      )}
     </StepLayout>
   );
 }
