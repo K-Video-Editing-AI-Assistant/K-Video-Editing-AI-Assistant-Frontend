@@ -3,6 +3,8 @@ import Upload from '@/pages/Upload/Upload';
 import Analysis from '@/pages/Analysis/Analysis';
 import Request from '@/pages/Request/Request';
 import Segments from '@/pages/Segments/Segments';
+import Edit from '@/pages/Edit/Edit';
+import Download from '@/pages/Download/Download';
 
 // Each entry connects a URL path to a page
 export const router = createBrowserRouter([
@@ -12,4 +14,6 @@ export const router = createBrowserRouter([
   { path: '/analysis', element: <Analysis /> },
   { path: '/request', element: <Request /> },
   { path: '/segments', element: <Segments /> },
+  { path: '/edit', element: <Edit /> },
+  { path: '/download', element: <Download /> },
 ]);
