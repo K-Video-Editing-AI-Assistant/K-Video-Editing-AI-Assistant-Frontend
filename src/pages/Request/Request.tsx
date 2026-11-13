@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import StepLayout from '@/components/layouts/StepLayout';
+import SubtitleModal from '@/components/common/SubtitleModal';
 import Button from '@/components/ui/Button';
 import OptionButton from '@/components/ui/OptionButton';
 import { useUploadStore } from '@/store/useUploadStore';
@@ -23,6 +24,8 @@ function Request() {
   const [requestText, setRequestText] = useState('');
   // The chosen target length (1 minute is selected first, like the Figma design)
   const [targetLength, setTargetLength] = useState<TargetLength>('1m');
+  // Whether the full subtitle modal is open
+  const [isSubtitleOpen, setIsSubtitleOpen] = useState(false);
 
   // No video (e.g. the page was refreshed): go back to the upload step
   if (!file) {
@@ -78,8 +81,10 @@ function Request() {
         </section>
 
         <div className='flex justify-center'>
-          {/* TODO: open the full subtitle modal later */}
-          <Button>전체 자막 보기</Button>
+          <Button onClick={() => setIsSubtitleOpen(true)}>전체 자막 보기</Button>
+          {isSubtitleOpen && (
+            <SubtitleModal fileName={file.name} onClose={() => setIsSubtitleOpen(false)} />
+          )}
         </div>
       </div>
     </StepLayout>
