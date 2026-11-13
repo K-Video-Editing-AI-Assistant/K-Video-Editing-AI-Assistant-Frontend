@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import StepLayout from '@/components/layouts/StepLayout';
-import UploadDropzone from '@/components/common/UploadDropzone';
 import FileInfoCard from '@/components/common/FileInfoCard';
+import LeaveProjectModal from '@/components/common/LeaveProjectModal';
+import UploadDropzone from '@/components/common/UploadDropzone';
 import Button from '@/components/ui/Button';
 import { useVideoDuration } from '@/hooks/useVideoDuration';
 import { useUploadStore } from '@/store/useUploadStore';
@@ -16,12 +18,18 @@ function Upload() {
   const setFile = useUploadStore((state) => state.setFile);
   // Video length in seconds (null while loading)
   const duration = useVideoDuration(file);
+  // Whether the "leave project" modal is open
+  const [isLeaveOpen, setIsLeaveOpen] = useState(false);
 
   return (
     <StepLayout
       currentStep={1}
       title='영상을 업로드하세요'
-      leftAction={<Button variant='secondary'>프로젝트 나가기</Button>}
+      leftAction={
+        <Button variant='secondary' onClick={() => setIsLeaveOpen(true)}>
+          프로젝트 나가기
+        </Button>
+      }
       rightAction={
         <Button disabled={file === null} onClick={() => navigate('/analysis')}>
           영상 분석 시작
@@ -40,6 +48,17 @@ function Upload() {
           />
         )}
       </div>
+
+      {isLeaveOpen && (
+        <LeaveProjectModal
+          onCancel={() => setIsLeaveOpen(false)}
+          onConfirm={() => {
+            // TODO: decide where "leave" should go with the team. For now it clears the video.
+            setFile(null);
+            setIsLeaveOpen(false);
+          }}
+        />
+      )}
     </StepLayout>
   );
 }

@@ -13,6 +13,7 @@
   --color-accent: #fee500; /* Yellow accent */
   --color-ink: #111111; /* Text on yellow buttons */
   --color-success: #a8d9af; /* Selected count, etc. */
+  --color-error: #ff8f8f; /* Error text and destructive buttons */
 
   /* Font */
   --font-sans: 'Noto Sans KR', sans-serif;

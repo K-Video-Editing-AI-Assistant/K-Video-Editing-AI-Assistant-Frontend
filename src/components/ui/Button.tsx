@@ -3,7 +3,7 @@ import clsx from 'clsx';
 
 // Accepts every normal <button> attribute (onClick, disabled, ...) plus our own options.
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: 'primary' | 'secondary' | 'accentText'; // accentText = dark button with yellow text
+  variant?: 'primary' | 'secondary' | 'accentText' | 'danger'; // danger = red button for risky actions
   size?: 'md' | 'sm'; // md = 52px tall, sm = 40px tall
 };
 
@@ -23,6 +23,7 @@ function Button({ variant = 'primary', size = 'md', className, ...props }: Butto
         variant === 'primary' && 'bg-accent text-ink',
         variant === 'secondary' && 'border border-line bg-raised text-fg',
         variant === 'accentText' && 'border border-line bg-raised text-accent',
+        variant === 'danger' && 'bg-error text-ink',
         // Extra classes passed in by the parent
         className,
       )}
