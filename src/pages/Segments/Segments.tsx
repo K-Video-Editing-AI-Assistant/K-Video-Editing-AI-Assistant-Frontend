@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
+import PreviewModal from '@/components/common/PreviewModal';
 import SegmentCard from '@/components/common/SegmentCard';
 import StepLayout from '@/components/layouts/StepLayout';
 import Button from '@/components/ui/Button';
@@ -15,6 +17,8 @@ function Segments() {
   const toggleSelected = useSegmentStore((state) => state.toggleSelected);
   const selectAll = useSegmentStore((state) => state.selectAll);
   const clearSelection = useSegmentStore((state) => state.clearSelection);
+  // The segment shown in the preview modal (null = modal closed)
+  const [previewId, setPreviewId] = useState<string | null>(null);
   const startEdit = useSegmentStore((state) => state.startEdit);
 
   // No video (e.g. the page was refreshed): go back to the upload step
@@ -30,6 +34,7 @@ function Segments() {
   );
   const allSelected = segments.length > 0 && selectedIds.length === segments.length;
   const hasSelection = selectedIds.length > 0;
+  const previewSegment = segments.find((segment) => segment.id === previewId);
 
   return (
     <StepLayout
@@ -82,11 +87,15 @@ function Segments() {
               file={file}
               selected={selectedIds.includes(segment.id)}
               onToggle={() => toggleSelected(segment.id)}
-              // TODO: open the preview modal and download one segment later
+              onPreview={() => setPreviewId(segment.id)}
+              // TODO: download one segment after the backend is ready
             />
           </li>
         ))}
       </ul>
+      {previewSegment && (
+        <PreviewModal segment={previewSegment} file={file} onClose={() => setPreviewId(null)} />
+      )}
     </StepLayout>
   );
 }
