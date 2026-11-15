@@ -23,3 +23,18 @@ export function toTimeRanges(segments: { start: number; end: number }[]): TimeRa
     endSeconds: Math.round(end * 1000) / 1000,
   }));
 }
+
+export type RenderResult = {
+  renderId: string;
+  videoId: string;
+  durationSeconds: number;
+  fileUrl: string;
+  isStub: boolean;
+};
+export async function getRender(videoId: string, renderId: string, signal?: AbortSignal) {
+  const response = await api.get<ApiResponse<RenderResult>>(
+    `/api/videos/${encodeURIComponent(videoId)}/renders/${encodeURIComponent(renderId)}`,
+    { signal },
+  );
+  return unwrap(response.data);
+}
