@@ -1,4 +1,8 @@
-import { useState } from 'react';
+import { createRecommendation } from '@/api/recommendations';
+import { errorMessage } from '@/api/client';
+import { useVideoDuration } from '@/hooks/useVideoDuration';
+import { useSegmentStore } from '@/store/useSegmentStore';
+import { useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import StepLayout from '@/components/layouts/StepLayout';
 import SubtitleModal from '@/components/common/SubtitleModal';
@@ -24,6 +28,39 @@ function Request() {
   // Whether the full subtitle modal is open
   const [isSubtitleOpen, setIsSubtitleOpen] = useState(false);
 
+  const videoId = useUploadStore((state) => state.videoId);
+  const duration = useVideoDuration(file);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState('');
+  const controller = useRef<AbortController | null>(null);
+  const pending = useRef(false);
+  useEffect(() => () => controller.current?.abort(), []);
+  const handleGenerate = async () => {
+    const query = requestText.trim();
+    if (!videoId || !query || query.length > 2000 || pending.current) return;
+    const seconds =
+      targetLength === '30s' ? 30 : targetLength === '1m' ? 60 : Math.ceil(duration ?? 0);
+    if (seconds <= 0) {
+      setError('영상 길이를 확인한 후 다시 시도해 주세요.');
+      return;
+    }
+    pending.current = true;
+    setIsGenerating(true);
+    setError('');
+    controller.current = new AbortController();
+    try {
+      const result = await createRecommendation(videoId, query, seconds, controller.current.signal);
+      if (controller.current.signal.aborted) return;
+      useSegmentStore.getState().setRecommendation(result);
+      navigate('/segments');
+    } catch (cause) {
+      if (!controller.current.signal.aborted) setError(errorMessage(cause));
+    } finally {
+      pending.current = false;
+      setIsGenerating(false);
+    }
+  };
+
   // No video (e.g. the page was refreshed): go back to the upload step
   const prepared = useUploadStore((state) => state.prepared);
   if (!file) {
@@ -41,9 +78,26 @@ function Request() {
           이전 단계
         </Button>
       }
-      rightAction={<Button onClick={() => navigate('/segments')}>추천 구간 생성</Button>}
+      rightAction={
+        <Button
+          disabled={
+            isGenerating ||
+            !requestText.trim() ||
+            requestText.trim().length > 2000 ||
+            (targetLength === 'none' && !duration)
+          }
+          onClick={handleGenerate}
+        >
+          {isGenerating ? '추천 생성 중…' : '추천 구간 생성'}
+        </Button>
+      }
     >
       <div className='flex flex-col gap-15 pb-12'>
+        {error && (
+          <p role='alert' className='text-error'>
+            {error}
+          </p>
+        )}
         <section className='flex flex-col gap-4'>
           <label htmlFor='scene-request' className='text-section font-bold'>
             찾을 장면을 직접 입력하세요
@@ -52,6 +106,8 @@ function Request() {
           <div className='flex flex-col gap-6 lg:flex-row lg:items-end'>
             <textarea
               id='scene-request'
+              maxLength={2000}
+              disabled={isGenerating}
               value={requestText}
               onChange={(event) => setRequestText(event.target.value)}
               placeholder='예: 탄소를 흡수하는 원리를 설명하는 부분'
@@ -64,6 +120,7 @@ function Request() {
               {LENGTH_OPTIONS.map((option) => (
                 <OptionButton
                   key={option.value}
+                  disabled={isGenerating}
                   selected={targetLength === option.value}
                   onClick={() => setTargetLength(option.value)}
                 >
