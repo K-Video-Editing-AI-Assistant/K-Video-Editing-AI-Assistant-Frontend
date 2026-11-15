@@ -25,9 +25,12 @@ function Request() {
   const [isSubtitleOpen, setIsSubtitleOpen] = useState(false);
 
   // No video (e.g. the page was refreshed): go back to the upload step
+  const prepared = useUploadStore((state) => state.prepared);
   if (!file) {
     return <Navigate to='/upload' replace />;
   }
+
+  if (!prepared) return <Navigate to='/analysis' replace />;
 
   return (
     <StepLayout
