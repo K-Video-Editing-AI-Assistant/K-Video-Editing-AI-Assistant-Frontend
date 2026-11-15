@@ -1,3 +1,5 @@
+import { useSegmentStore } from './useSegmentStore';
+import { useSubtitleStore } from './useSubtitleStore';
 import { create } from 'zustand';
 import type { VideoUploadAccepted } from '@/api/videos';
 
@@ -16,7 +18,11 @@ export const useUploadStore = create<UploadState>((set) => ({
   videoId: null,
   jobId: null,
   prepared: false,
-  setFile: (file) => set({ file, videoId: null, jobId: null, prepared: false }),
+  setFile: (file) => {
+    useSegmentStore.getState().reset();
+    useSubtitleStore.setState({ videoId: null, subtitles: [] });
+    set({ file, videoId: null, jobId: null, prepared: false });
+  },
   setUploaded: ({ videoId, jobId }) => set({ videoId, jobId, prepared: false }),
   setPrepared: (prepared) => set({ prepared }),
 }));

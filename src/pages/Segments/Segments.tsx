@@ -21,10 +21,16 @@ function Segments() {
   const [previewId, setPreviewId] = useState<string | null>(null);
   const startEdit = useSegmentStore((state) => state.startEdit);
 
+  const recommendation = useSegmentStore((state) => state.recommendation);
+  const videoId = useUploadStore((state) => state.videoId);
+
   // No video (e.g. the page was refreshed): go back to the upload step
   if (!file) {
     return <Navigate to='/upload' replace />;
   }
+
+  if (!recommendation || recommendation.videoId !== videoId)
+    return <Navigate to='/request' replace />;
 
   // Values worked out from the ticked segments
   const selectedSegments = segments.filter((segment) => selectedIds.includes(segment.id));
@@ -64,6 +70,16 @@ function Segments() {
         </>
       }
     >
+      {recommendation.isStub && (
+        <p role='status' className='mb-4 text-muted'>
+          개발용 추천 결과입니다.
+        </p>
+      )}
+      {segments.length === 0 && (
+        <p role='status' className='mb-4 text-muted'>
+          요청과 관련된 구간이 없어요. 요청 내용을 바꿔 다시 생성해 주세요.
+        </p>
+      )}
       {/* Summary row */}
       <div className='mb-6 flex items-center gap-3'>
         <Metric label='선택' value={`${selectedIds.length}개`} tone='success' />
