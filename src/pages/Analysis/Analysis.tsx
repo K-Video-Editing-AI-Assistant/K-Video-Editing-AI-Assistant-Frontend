@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
+import { errorMessage } from '@/api/client';
+import { waitForJob } from '@/api/jobs';
 import AnalysisFailedModal from '@/components/common/AnalysisFailedModal';
 import StepLayout from '@/components/layouts/StepLayout';
 import VideoPreview from '@/components/common/VideoPreview';
@@ -7,43 +9,28 @@ import Button from '@/components/ui/Button';
 import ProgressBar from '@/components/ui/ProgressBar';
 import { useUploadStore } from '@/store/useUploadStore';
 
-// Temporary switch to preview the failure modal. TODO: replace with a real backend error.
-const SIMULATE_FAILURE = false;
-
 function Analysis() {
   const navigate = useNavigate();
-  // The video picked on the upload page
-  const file = useUploadStore((state) => state.file);
-  const setFile = useUploadStore((state) => state.setFile);
-  // Analysis progress from 0 to 100
+  const { file, jobId, prepared, setFile, setPrepared } = useUploadStore();
   const [progress, setProgress] = useState(0);
-  // Temporary: when the switch is on, pretend the analysis fails halfway
-  const isFailed = SIMULATE_FAILURE && progress >= 40;
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    // Stop the fake progress while the failure modal is open
-    if (isFailed) return;
+    if (!file || !jobId || prepared) return;
+    const controller = new AbortController();
+    void waitForJob(jobId, controller.signal, (job) => setProgress(job.progress))
+      .then(() => {
+        setPrepared(true);
+        navigate('/request', { replace: true });
+      })
+      .catch((cause: unknown) => {
+        if (!controller.signal.aborted) setError(errorMessage(cause));
+      });
+    return () => controller.abort();
+  }, [file, jobId, prepared, setPrepared, navigate]);
 
-    // Temporary: pretend the analysis is running. Replace with real backend progress later.
-    const timer = setInterval(() => {
-      setProgress((current) => Math.min(current + 5, 100));
-    }, 300);
-
-    // Cleanup: stop the timer when leaving this page
-    return () => clearInterval(timer);
-  }, [isFailed]);
-
-  useEffect(() => {
-    // When the analysis finishes, move on to the next step
-    if (progress >= 100) {
-      navigate('/request');
-    }
-  }, [progress, navigate]);
-
-  // No video (e.g. the page was refreshed or opened directly): go back to the upload step
-  if (!file) {
-    return <Navigate to='/upload' replace />;
-  }
+  if (!file || !jobId) return <Navigate to='/upload' replace />;
+  if (prepared) return <Navigate to='/request' replace />;
 
   return (
     <StepLayout
@@ -57,22 +44,24 @@ function Analysis() {
       }
       rightAction={<Button disabled>분석 중…</Button>}
     >
-      {/* max-w-200 = 800px wide, centered like the Figma design */}
       <div className='mx-auto flex max-w-200 flex-col gap-8'>
         <VideoPreview file={file} />
         <ProgressBar value={progress} />
+        <p role={error ? 'alert' : 'status'} className={error ? 'text-error' : 'text-muted'}>
+          {error || '자막 추출 및 분석 중이에요. 완료되면 자동으로 이동합니다.'}
+        </p>
       </div>
-
-      {isFailed && (
+      {error && (
         <AnalysisFailedModal
           file={file}
-          // Clear the video and go back to choose another one
           onChangeFile={() => {
             setFile(null);
             navigate('/upload');
           }}
-          // Start the analysis again from 0%
-          onRetry={() => setProgress(0)}
+          onRetry={() => {
+            setFile(file);
+            navigate('/upload');
+          }}
           onClose={() => navigate('/upload')}
         />
       )}

@@ -41,7 +41,9 @@ function AnalysisFailedModal({ file, onChangeFile, onRetry, onClose }: AnalysisF
         <p className='rounded-lg border border-line bg-raised px-4 py-4 text-value font-bold'>
           {file.name}
         </p>
-        <p className='text-lg text-muted'>영상과 추출된 자막은 유지됩니다.</p>
+        <p className='text-lg text-muted'>
+          선택한 영상은 유지됩니다. 다시 분석하려면 업로드 화면에서 시작해 주세요.
+        </p>
       </div>
     </Modal>
   );
