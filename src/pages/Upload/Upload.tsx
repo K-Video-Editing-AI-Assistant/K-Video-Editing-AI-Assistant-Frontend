@@ -74,7 +74,15 @@ function Upload() {
           </p>
         )}
         <fieldset disabled={isUploading}>
-          <UploadDropzone hasFile={file !== null} onFileSelect={setFile} />
+          <UploadDropzone
+            hasFile={file !== null}
+            onFileSelect={(nextFile) => {
+              if (!pending.current) {
+                setError('');
+                setFile(nextFile);
+              }
+            }}
+          />
         </fieldset>
         {file && (
           <FileInfoCard
