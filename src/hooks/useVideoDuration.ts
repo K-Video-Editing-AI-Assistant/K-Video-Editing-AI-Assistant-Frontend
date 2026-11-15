@@ -15,7 +15,9 @@ export function useVideoDuration(file: File | null): number | null {
     const video = document.createElement('video');
     video.preload = 'metadata'; // Only load the info (like length), not the whole video
     video.onloadedmetadata = () => {
-      setResult({ file, seconds: video.duration });
+      if (Number.isFinite(video.duration) && video.duration > 0) {
+        setResult({ file, seconds: video.duration });
+      }
     };
     video.src = url;
 
