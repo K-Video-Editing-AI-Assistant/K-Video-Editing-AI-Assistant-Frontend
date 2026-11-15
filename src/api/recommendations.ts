@@ -25,3 +25,15 @@ export async function createRecommendation(
   );
   return unwrap(response.data);
 }
+
+export async function getRecommendation(
+  videoId: string,
+  recommendationId: string,
+  signal?: AbortSignal,
+) {
+  const response = await api.get<ApiResponse<Recommendation>>(
+    `/api/videos/${encodeURIComponent(videoId)}/recommendations/${encodeURIComponent(recommendationId)}`,
+    { signal },
+  );
+  return unwrap(response.data);
+}
