@@ -1,14 +1,11 @@
 import { create } from 'zustand';
+import type { Recommendation } from '@/api/recommendations';
 import type { Segment } from '@/types/segment';
 
-// Placeholder data. The recommended segments will come from the backend later.
-const MOCK_SEGMENTS: Segment[] = [
-  { id: '1', title: '광합성으로 탄소를 흡수하는 원리', start: 130, end: 158 },
-  { id: '2', title: '흡수한 탄소가 저장되는 과정', start: 342, end: 372 },
-  { id: '3', title: '숲이 탄소 중립에 기여하는 이유', start: 545, end: 582 },
-];
-
 type SegmentState = {
+  recommendation: Recommendation | null;
+  setRecommendation: (result: Recommendation) => void;
+  reset: () => void;
   segments: Segment[]; // All recommended segments
   selectedIds: string[]; // Ids of the segments ticked on the selection page
   toggleSelected: (id: string) => void; // Tick or untick one segment
@@ -22,7 +19,21 @@ type SegmentState = {
 };
 
 export const useSegmentStore = create<SegmentState>((set) => ({
-  segments: MOCK_SEGMENTS,
+  recommendation: null,
+  segments: [],
+  setRecommendation: (recommendation) =>
+    set({
+      recommendation,
+      segments: recommendation.clips.map((clip) => ({
+        id: clip.clipId,
+        title: clip.reason,
+        start: clip.startSeconds,
+        end: clip.endSeconds,
+      })),
+      selectedIds: [],
+      editIds: [],
+    }),
+  reset: () => set({ recommendation: null, segments: [], selectedIds: [], editIds: [] }),
   selectedIds: [],
   toggleSelected: (id) =>
     set((state) => ({
