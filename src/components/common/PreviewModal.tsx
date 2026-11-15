@@ -9,17 +9,19 @@ type PreviewModalProps = {
   segment: Segment;
   file: File; // The full video
   onClose: () => void;
+  onDownload?: () => void;
 };
 
-function PreviewModal({ segment, file, onClose }: PreviewModalProps) {
+function PreviewModal({ segment, file, onClose, onDownload }: PreviewModalProps) {
   return (
     <Modal
       title='구간 미리보기'
       width='lg'
       onClose={onClose}
       footer={
-        // TODO: download this one segment after the backend is ready
-        <Button variant='accentText'>이 구간 다운로드</Button>
+        <Button variant='accentText' disabled={!onDownload} onClick={onDownload}>
+          이 구간 다운로드
+        </Button>
       }
     >
       <div className='flex flex-col gap-6'>

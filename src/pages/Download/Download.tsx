@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { errorMessage } from '@/api/client';
-import { getRender } from '@/api/renders';
+import { downloadRenderFile, getRender, renderFileUrl } from '@/api/renders';
 import type { RenderResult } from '@/api/renders';
 import StepLayout from '@/components/layouts/StepLayout';
 import Button from '@/components/ui/Button';
@@ -18,6 +18,29 @@ function Download() {
   const [result, setResult] = useState<RenderResult | null>(null);
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const downloadController = useRef<AbortController | null>(null);
+  const downloading = useRef(false);
+  useEffect(() => () => downloadController.current?.abort(), []);
+  const handleDownload = async () => {
+    if (!result || downloading.current || !file) return;
+    downloading.current = true;
+    setIsDownloading(true);
+    setError('');
+    downloadController.current = new AbortController();
+    try {
+      await downloadRenderFile(
+        result.fileUrl,
+        `${file.name.replace(/\.[^.]+$/, '')}_편집본.mp4`,
+        downloadController.current.signal,
+      );
+    } catch (cause) {
+      if (!downloadController.current.signal.aborted) setError(errorMessage(cause));
+    } finally {
+      downloading.current = false;
+      setIsDownloading(false);
+    }
+  };
   useEffect(() => {
     if (!videoId || !rendered.renderId || videoId !== rendered.videoId) return;
     const controller = new AbortController();
@@ -44,8 +67,8 @@ function Download() {
         </Button>
       }
       rightAction={
-        <Button disabled className='w-63'>
-          영상 다운로드
+        <Button disabled={!result || isDownloading} onClick={handleDownload} className='w-63'>
+          {isDownloading ? '다운로드 중…' : '영상 다운로드'}
         </Button>
       }
     >
@@ -67,6 +90,12 @@ function Download() {
         )}
         {result && (
           <>
+            <video
+              controls
+              src={renderFileUrl(result.fileUrl)}
+              className='w-full rounded-2xl bg-black'
+              aria-label='생성된 영상'
+            />
             {result.isStub && (
               <p role='status' className='text-muted'>
                 실제 편집 영상이 아닌 개발용 결과입니다.

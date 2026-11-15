@@ -16,7 +16,8 @@ type ModalProps = {
   width?: keyof typeof WIDTHS;
   titleTone?: 'default' | 'error'; // "error" shows the title in red
   children: ReactNode; // The content between the title and the buttons
-  footer?: ReactNode; // Buttons shown at the bottom right
+  footer?: ReactNode;
+  dismissible?: boolean; // Buttons shown at the bottom right
 };
 
 function Modal({
@@ -26,21 +27,22 @@ function Modal({
   titleTone = 'default',
   children,
   footer,
+  dismissible = true,
 }: ModalProps) {
   // Close the modal when the Esc key is pressed
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      if (dismissible && event.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', handleKeyDown);
     // Cleanup: stop listening when the modal disappears
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+  }, [onClose, dismissible]);
 
   return (
     // Dark background covering the whole screen. Clicking it closes the modal.
     <div
-      onClick={onClose}
+      onClick={dismissible ? onClose : undefined}
       className='fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6'
     >
       <div
@@ -66,6 +68,7 @@ function Modal({
           <button
             type='button'
             aria-label='닫기'
+            disabled={!dismissible}
             onClick={onClose}
             className='flex size-8 cursor-pointer items-center justify-center text-xl text-muted hover:text-fg'
           >

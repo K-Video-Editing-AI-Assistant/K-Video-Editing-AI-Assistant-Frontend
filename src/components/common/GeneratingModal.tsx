@@ -19,7 +19,7 @@ function GeneratingModal({
   onClose,
 }: GeneratingModalProps) {
   return (
-    <Modal title='영상 생성 중' width='md' onClose={onClose}>
+    <Modal title='영상 생성 중' width='md' onClose={onClose} dismissible={false}>
       <div className='flex flex-col gap-6'>
         <p className='text-section font-bold break-all'>{fileName}</p>
         <div className='flex gap-3'>

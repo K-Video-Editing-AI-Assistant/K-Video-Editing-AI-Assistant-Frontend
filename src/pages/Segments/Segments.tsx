@@ -1,3 +1,7 @@
+import { createRender, downloadRenderFile, getRender, toTimeRanges } from '@/api/renders';
+import { waitForJob } from '@/api/jobs';
+import type { Segment } from '@/types/segment';
+import GeneratingModal from '@/components/common/GeneratingModal';
 import { getRecommendation } from '@/api/recommendations';
 import { errorMessage } from '@/api/client';
 import { useEffect, useRef, useState } from 'react';
@@ -55,6 +59,57 @@ function Segments() {
     }
   };
 
+  const [downloadCount, setDownloadCount] = useState(0);
+  const [downloadSeconds, setDownloadSeconds] = useState(0);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const downloadController = useRef<AbortController | null>(null);
+  const downloading = useRef(false);
+  const pendingDownload = useRef<{ signature: string; jobId: string } | null>(null);
+  useEffect(() => () => downloadController.current?.abort(), []);
+  const downloadSegments = async (items: Segment[]) => {
+    if (
+      !videoId ||
+      !recommendation ||
+      !file ||
+      items.length === 0 ||
+      downloading.current ||
+      refreshing.current
+    )
+      return;
+    downloading.current = true;
+    setDownloadCount(items.length);
+    setDownloadProgress(0);
+    setError('');
+    setDownloadSeconds(items.reduce((sum, item) => sum + item.end - item.start, 0));
+    downloadController.current = new AbortController();
+    const signal = downloadController.current.signal;
+    const input = { recommendationId: recommendation.recommendationId, clips: toTimeRanges(items) };
+    const signature = JSON.stringify(input);
+    try {
+      if (pendingDownload.current?.signature !== signature) {
+        const accepted = await createRender(videoId, input, signal);
+        pendingDownload.current = { signature, jobId: accepted.jobId };
+      }
+      const job = await waitForJob(pendingDownload.current.jobId, signal, (status) => {
+        setDownloadProgress(status.progress);
+        if (status.state === 'failed') pendingDownload.current = null;
+      });
+      if (!job.resultRef) throw new Error('생성 결과 식별자가 없어요.');
+      const result = await getRender(videoId, job.resultRef, signal);
+      await downloadRenderFile(
+        result.fileUrl,
+        `${file.name.replace(/\.[^.]+$/, '')}_구간.mp4`,
+        signal,
+      );
+      pendingDownload.current = null;
+    } catch (cause) {
+      if (!signal.aborted) setError(errorMessage(cause));
+    } finally {
+      downloading.current = false;
+      setDownloadCount(0);
+    }
+  };
+
   // No video (e.g. the page was refreshed): go back to the upload step
   if (!file) {
     return <Navigate to='/upload' replace />;
@@ -78,18 +133,25 @@ function Segments() {
       currentStep={4}
       title='구간을 선택하세요'
       leftAction={
-        <Button variant='secondary' onClick={() => navigate('/request')}>
+        <Button
+          variant='secondary'
+          disabled={downloadCount > 0 || isRefreshing}
+          onClick={() => navigate('/request')}
+        >
           이전 단계
         </Button>
       }
       rightAction={
         <>
-          {/* TODO: download the selected segments after the backend is ready */}
-          <Button variant='accentText' disabled={!hasSelection || isRefreshing}>
+          <Button
+            variant='accentText'
+            disabled={!hasSelection || isRefreshing || downloadCount > 0}
+            onClick={() => void downloadSegments(selectedSegments)}
+          >
             선택 영상 다운로드
           </Button>
           <Button
-            disabled={!hasSelection || isRefreshing}
+            disabled={!hasSelection || isRefreshing || downloadCount > 0}
             onClick={() => {
               // Copy the ticked segments into the edit list, then move on
               startEdit();
@@ -116,7 +178,11 @@ function Segments() {
           {error}
         </p>
       )}
-      <Button variant='secondary' disabled={isRefreshing} onClick={refreshResult}>
+      <Button
+        variant='secondary'
+        disabled={isRefreshing || downloadCount > 0}
+        onClick={refreshResult}
+      >
         {isRefreshing ? '불러오는 중…' : '추천 결과 다시 불러오기'}
       </Button>
       {/* Summary row */}
@@ -143,13 +209,27 @@ function Segments() {
               selected={selectedIds.includes(segment.id)}
               onToggle={() => toggleSelected(segment.id)}
               onPreview={() => setPreviewId(segment.id)}
-              // TODO: download one segment after the backend is ready
+              onDownload={() => void downloadSegments([segment])}
             />
           </li>
         ))}
       </ul>
       {previewSegment && (
-        <PreviewModal segment={previewSegment} file={file} onClose={() => setPreviewId(null)} />
+        <PreviewModal
+          segment={previewSegment}
+          file={file}
+          onClose={() => setPreviewId(null)}
+          onDownload={() => void downloadSegments([previewSegment])}
+        />
+      )}
+      {downloadCount > 0 && (
+        <GeneratingModal
+          fileName={`${file.name}_구간.mp4`}
+          segmentCount={downloadCount}
+          totalSeconds={downloadSeconds}
+          progress={downloadProgress}
+          onClose={() => {}}
+        />
       )}
     </StepLayout>
   );
