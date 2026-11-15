@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { getRecommendation } from '@/api/recommendations';
+import { errorMessage } from '@/api/client';
+import { useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import PreviewModal from '@/components/common/PreviewModal';
 import SegmentCard from '@/components/common/SegmentCard';
@@ -23,6 +25,35 @@ function Segments() {
 
   const recommendation = useSegmentStore((state) => state.recommendation);
   const videoId = useUploadStore((state) => state.videoId);
+
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState('');
+  const refreshController = useRef<AbortController | null>(null);
+  const refreshing = useRef(false);
+  useEffect(() => () => refreshController.current?.abort(), []);
+  const refreshResult = async () => {
+    if (!videoId || !recommendation || refreshing.current) return;
+    refreshing.current = true;
+    setIsRefreshing(true);
+    setError('');
+    refreshController.current = new AbortController();
+    try {
+      const result = await getRecommendation(
+        videoId,
+        recommendation.recommendationId,
+        refreshController.current.signal,
+      );
+      if (!refreshController.current.signal.aborted) {
+        useSegmentStore.getState().setRecommendation(result);
+        setPreviewId(null);
+      }
+    } catch (cause) {
+      if (!refreshController.current.signal.aborted) setError(errorMessage(cause));
+    } finally {
+      refreshing.current = false;
+      setIsRefreshing(false);
+    }
+  };
 
   // No video (e.g. the page was refreshed): go back to the upload step
   if (!file) {
@@ -54,11 +85,11 @@ function Segments() {
       rightAction={
         <>
           {/* TODO: download the selected segments after the backend is ready */}
-          <Button variant='accentText' disabled={!hasSelection}>
+          <Button variant='accentText' disabled={!hasSelection || isRefreshing}>
             선택 영상 다운로드
           </Button>
           <Button
-            disabled={!hasSelection}
+            disabled={!hasSelection || isRefreshing}
             onClick={() => {
               // Copy the ticked segments into the edit list, then move on
               startEdit();
@@ -80,6 +111,14 @@ function Segments() {
           요청과 관련된 구간이 없어요. 요청 내용을 바꿔 다시 생성해 주세요.
         </p>
       )}
+      {error && (
+        <p role='alert' className='mb-4 text-error'>
+          {error}
+        </p>
+      )}
+      <Button variant='secondary' disabled={isRefreshing} onClick={refreshResult}>
+        {isRefreshing ? '불러오는 중…' : '추천 결과 다시 불러오기'}
+      </Button>
       {/* Summary row */}
       <div className='mb-6 flex items-center gap-3'>
         <Metric label='선택' value={`${selectedIds.length}개`} tone='success' />
