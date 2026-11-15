@@ -1,3 +1,4 @@
+import { useRenderStore } from './useRenderStore';
 import { create } from 'zustand';
 import type { Recommendation } from '@/api/recommendations';
 import type { Segment } from '@/types/segment';
@@ -21,7 +22,8 @@ type SegmentState = {
 export const useSegmentStore = create<SegmentState>((set) => ({
   recommendation: null,
   segments: [],
-  setRecommendation: (recommendation) =>
+  setRecommendation: (recommendation) => {
+    useRenderStore.getState().reset();
     set({
       recommendation,
       segments: recommendation.clips.map((clip) => ({
@@ -32,7 +34,8 @@ export const useSegmentStore = create<SegmentState>((set) => ({
       })),
       selectedIds: [],
       editIds: [],
-    }),
+    });
+  },
   reset: () => set({ recommendation: null, segments: [], selectedIds: [], editIds: [] }),
   selectedIds: [],
   toggleSelected: (id) =>
