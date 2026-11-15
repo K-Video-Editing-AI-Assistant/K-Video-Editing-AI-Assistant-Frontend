@@ -1,4 +1,8 @@
-import { useEffect, useState } from 'react';
+import { errorMessage } from '@/api/client';
+import { waitForJob } from '@/api/jobs';
+import { createRender, toTimeRanges } from '@/api/renders';
+import { useRenderStore } from '@/store/useRenderStore';
+import { useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import GeneratingModal from '@/components/common/GeneratingModal';
 import SegmentOrderItem from '@/components/common/SegmentOrderItem';
@@ -8,9 +12,6 @@ import Button from '@/components/ui/Button';
 import { useSegmentStore } from '@/store/useSegmentStore';
 import { useUploadStore } from '@/store/useUploadStore';
 import { formatDuration } from '@/utils/formatDuration';
-
-// Placeholder subtitle. Real subtitles will come from the backend later.
-const MOCK_SUBTITLE = '나무는 광합성으로 탄소를 흡수합니다.';
 
 function Edit() {
   const navigate = useNavigate();
@@ -22,27 +23,58 @@ function Edit() {
   // The segment the user clicked in the list (null = none clicked yet)
   const [activeId, setActiveId] = useState<string | null>(null);
 
-  // Fake progress for making the video. Replace with real progress when the backend is ready.
+  const videoId = useUploadStore((state) => state.videoId);
+  const recommendation = useSegmentStore((state) => state.recommendation);
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [error, setError] = useState('');
+  const controller = useRef<AbortController | null>(null);
+  const pending = useRef(false);
+  const pendingJob = useRef<{ signature: string; jobId: string } | null>(null);
+  useEffect(() => () => controller.current?.abort(), []);
 
-  // While generating, raise the progress by 5 every 0.3 seconds
-  useEffect(() => {
-    if (!isGenerating) return;
-    const timer = setInterval(() => setProgress((value) => Math.min(value + 5, 100)), 300);
-    // Cleanup: stop the timer when generating stops or the page closes
-    return () => clearInterval(timer);
-  }, [isGenerating]);
-
-  // At 100%, move on to the download step
-  useEffect(() => {
-    if (isGenerating && progress >= 100) navigate('/download');
-  }, [isGenerating, progress, navigate]);
+  const handleGenerate = async () => {
+    if (!videoId || !recommendation || pending.current || editIds.length === 0) return;
+    const ordered = editIds.flatMap((id) => segments.filter((segment) => segment.id === id));
+    const input = {
+      recommendationId: recommendation.recommendationId,
+      clips: toTimeRanges(ordered),
+    };
+    const signature = JSON.stringify(input);
+    pending.current = true;
+    setIsGenerating(true);
+    setProgress(0);
+    setError('');
+    controller.current = new AbortController();
+    const signal = controller.current.signal;
+    try {
+      if (pendingJob.current?.signature !== signature) {
+        const accepted = await createRender(videoId, input, signal);
+        pendingJob.current = { signature, jobId: accepted.jobId };
+      }
+      const job = await waitForJob(pendingJob.current.jobId, signal, (status) => {
+        setProgress(status.progress);
+        if (status.state === 'failed') pendingJob.current = null;
+      });
+      if (!job.resultRef) throw new Error('생성 결과 식별자가 없어요.');
+      useRenderStore.getState().setRendered(videoId, job.resultRef, ordered.length);
+      pendingJob.current = null;
+      navigate('/download');
+    } catch (cause) {
+      if (!signal.aborted) setError(errorMessage(cause));
+    } finally {
+      pending.current = false;
+      setIsGenerating(false);
+    }
+  };
 
   // No video (e.g. the page was refreshed): go back to the upload step
   if (!file) {
     return <Navigate to='/upload' replace />;
   }
+
+  if (!recommendation || recommendation.videoId !== videoId)
+    return <Navigate to='/request' replace />;
 
   // The segments in merge order (editIds holds only the ids)
   const editSegments = editIds.flatMap((id) => segments.filter((segment) => segment.id === id));
@@ -61,27 +93,27 @@ function Edit() {
       currentStep={5}
       title='합치기 전에 확인하세요'
       leftAction={
-        <Button variant='secondary' onClick={() => navigate('/segments')}>
+        <Button variant='secondary' disabled={isGenerating} onClick={() => navigate('/segments')}>
           구간 다시 선택
         </Button>
       }
       rightAction={
-        <Button disabled={editSegments.length === 0} onClick={() => setIsGenerating(true)}>
+        <Button disabled={editSegments.length === 0 || isGenerating} onClick={handleGenerate}>
           영상 만들기
         </Button>
       }
     >
-      <div className='flex gap-6 pb-8'>
+      {error && (
+        <p role='alert' className='mb-4 text-error'>
+          {error}
+        </p>
+      )}
+      <fieldset disabled={isGenerating} className='flex gap-6 pb-8'>
         {/* Left: player and the numbers of the current segment */}
         <div className='flex flex-1 flex-col gap-4'>
           {activeSegment ? (
             <>
-              <SegmentPlayer
-                file={file}
-                start={activeSegment.start}
-                end={activeSegment.end}
-                subtitle={MOCK_SUBTITLE}
-              />
+              <SegmentPlayer file={file} start={activeSegment.start} end={activeSegment.end} />
               <div className='grid grid-cols-3 gap-2 rounded-2xl border border-line p-4'>
                 {[
                   { label: '시작', value: formatDuration(activeSegment.start) },
@@ -97,7 +129,7 @@ function Edit() {
             </>
           ) : (
             <p className='rounded-2xl border border-line bg-surface p-8 text-center text-muted'>
-              합칠 구간이 없어요. "구간 다시 선택"으로 돌아가 주세요.
+              합칠 구간이 없어요. 구간 다시 선택으로 돌아가 주세요.
             </p>
           )}
         </div>
@@ -154,13 +186,13 @@ function Edit() {
                 </Button>
               </div>
               {/* TODO: open the subtitle edit modal later */}
-              <Button variant='secondary' className='w-full'>
+              <Button variant='secondary' className='w-full' disabled>
                 자막 편집
               </Button>
             </>
           )}
         </div>
-      </div>
+      </fieldset>
       {isGenerating && (
         <GeneratingModal
           fileName={resultName}
@@ -168,9 +200,7 @@ function Edit() {
           totalSeconds={totalSeconds}
           progress={progress}
           onClose={() => {
-            // Cancel: stop the fake progress and close the modal
-            setIsGenerating(false);
-            setProgress(0);
+            /* 서버 작업은 취소 API가 없어 완료까지 기다립니다. */
           }}
         />
       )}

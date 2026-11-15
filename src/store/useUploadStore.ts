@@ -1,3 +1,4 @@
+import { useRenderStore } from './useRenderStore';
 import { useSegmentStore } from './useSegmentStore';
 import { useSubtitleStore } from './useSubtitleStore';
 import { create } from 'zustand';
@@ -20,6 +21,7 @@ export const useUploadStore = create<UploadState>((set) => ({
   prepared: false,
   setFile: (file) => {
     useSegmentStore.getState().reset();
+    useRenderStore.getState().reset();
     useSubtitleStore.setState({ videoId: null, subtitles: [] });
     set({ file, videoId: null, jobId: null, prepared: false });
   },
