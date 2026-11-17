@@ -1,45 +1,62 @@
+import { useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import SegmentPlayer from '@/components/common/SegmentPlayer';
+import { errorMessage } from '@/api/client';
+import { downloadRenderFile, getRender, renderFileUrl } from '@/api/renders';
+import type { RenderResult } from '@/api/renders';
 import StepLayout from '@/components/layouts/StepLayout';
 import Button from '@/components/ui/Button';
 import Metric from '@/components/ui/Metric';
-import { useSegmentStore } from '@/store/useSegmentStore';
 import { useUploadStore } from '@/store/useUploadStore';
+import { useRenderStore } from '@/store/useRenderStore';
 import { formatDuration } from '@/utils/formatDuration';
-
-// Placeholder values. The real result video and its info will come from the backend later.
-const MOCK_SUBTITLE = '나무는 광합성으로 탄소를 흡수합니다.';
-const MOCK_RESOLUTION = '1920 × 1080';
 
 function Download() {
   const navigate = useNavigate();
   const file = useUploadStore((state) => state.file);
-  const segments = useSegmentStore((state) => state.segments);
-  const editIds = useSegmentStore((state) => state.editIds);
+  const videoId = useUploadStore((state) => state.videoId);
+  const rendered = useRenderStore();
+  const [result, setResult] = useState<RenderResult | null>(null);
+  const [error, setError] = useState('');
+  const [attempt, setAttempt] = useState(0);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const downloadController = useRef<AbortController | null>(null);
+  const downloading = useRef(false);
+  useEffect(() => () => downloadController.current?.abort(), []);
+  const handleDownload = async () => {
+    if (!result || downloading.current || !file) return;
+    downloading.current = true;
+    setIsDownloading(true);
+    setError('');
+    downloadController.current = new AbortController();
+    try {
+      await downloadRenderFile(
+        result.fileUrl,
+        `${file.name.replace(/\.[^.]+$/, '')}_편집본.mp4`,
+        downloadController.current.signal,
+      );
+    } catch (cause) {
+      if (!downloadController.current.signal.aborted) setError(errorMessage(cause));
+    } finally {
+      downloading.current = false;
+      setIsDownloading(false);
+    }
+  };
+  useEffect(() => {
+    if (!videoId || !rendered.renderId || videoId !== rendered.videoId) return;
+    const controller = new AbortController();
+    void getRender(videoId, rendered.renderId, controller.signal)
+      .then((response) => {
+        if (!controller.signal.aborted) setResult(response);
+      })
+      .catch((cause: unknown) => {
+        if (!controller.signal.aborted) setError(errorMessage(cause));
+      });
+    return () => controller.abort();
+  }, [videoId, rendered.videoId, rendered.renderId, attempt]);
 
-  // No video (e.g. the page was refreshed): go back to the upload step
-  if (!file) {
-    return <Navigate to='/upload' replace />;
-  }
-
-  // The segments in merge order (editIds holds only the ids)
-  const editSegments = editIds.flatMap((id) => segments.filter((segment) => segment.id === id));
-
-  // Nothing was merged (e.g. opened the address directly): go back to the selection step
-  if (editSegments.length === 0) {
-    return <Navigate to='/segments' replace />;
-  }
-
-  // Length of the merged video = the sum of all segment lengths
-  const totalSeconds = editSegments.reduce(
-    (sum, segment) => sum + (segment.end - segment.start),
-    0,
-  );
-  // "숲_강의.mp4" -> "숲_강의_편집본.mp4"
+  if (!file) return <Navigate to='/upload' replace />;
+  if (!rendered.renderId || videoId !== rendered.videoId) return <Navigate to='/edit' replace />;
   const resultName = `${file.name.replace(/\.[^.]+$/, '')}_편집본.mp4`;
-  // Stand-in for the merged video until the backend provides one
-  const firstSegment = editSegments[0];
-
   return (
     <StepLayout
       currentStep={6}
@@ -49,26 +66,50 @@ function Download() {
           다시 편집
         </Button>
       }
-      // TODO: download the real result file after the backend is ready
-      rightAction={<Button className='w-63'>영상 다운로드</Button>}
+      rightAction={
+        <Button disabled={!result || isDownloading} onClick={handleDownload} className='w-63'>
+          {isDownloading ? '다운로드 중…' : '영상 다운로드'}
+        </Button>
+      }
     >
       <div className='mx-auto flex max-w-208 flex-col gap-6 pb-8'>
-        <SegmentPlayer
-          file={file}
-          start={firstSegment.start}
-          end={firstSegment.end}
-          subtitle={MOCK_SUBTITLE}
-        />
-
-        <div className='flex flex-wrap items-center justify-center gap-4 rounded-2xl border border-line bg-surface px-6 py-6'>
-          <p className='text-value font-bold'>{resultName}</p>
-          <Metric label='길이' value={formatDuration(totalSeconds)} />
-          <Metric label='구간' value={`${editSegments.length}개`} />
-          <Metric label='해상도' value={MOCK_RESOLUTION} />
-        </div>
+        {!result && !error && <p role='status'>생성 결과를 불러오는 중…</p>}
+        {error && (
+          <div role='alert'>
+            <p className='text-error'>{error}</p>
+            <Button
+              onClick={() => {
+                setError('');
+                setResult(null);
+                setAttempt((value) => value + 1);
+              }}
+            >
+              다시 불러오기
+            </Button>
+          </div>
+        )}
+        {result && (
+          <>
+            <video
+              controls
+              src={renderFileUrl(result.fileUrl)}
+              className='w-full rounded-2xl bg-black'
+              aria-label='생성된 영상'
+            />
+            {result.isStub && (
+              <p role='status' className='text-muted'>
+                실제 편집 영상이 아닌 개발용 결과입니다.
+              </p>
+            )}
+            <div className='flex flex-wrap items-center justify-center gap-4 rounded-2xl border border-line bg-surface px-6 py-6'>
+              <p className='text-value font-bold'>{resultName}</p>
+              <Metric label='길이' value={formatDuration(result.durationSeconds)} />
+              <Metric label='구간' value={`${rendered.clipCount}개`} />
+            </div>
+          </>
+        )}
       </div>
     </StepLayout>
   );
 }
-
 export default Download;

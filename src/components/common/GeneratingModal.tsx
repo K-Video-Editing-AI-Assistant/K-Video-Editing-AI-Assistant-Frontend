@@ -19,14 +19,14 @@ function GeneratingModal({
   onClose,
 }: GeneratingModalProps) {
   return (
-    <Modal title='영상 생성 중' width='md' onClose={onClose}>
+    <Modal title='영상 생성 중' width='md' onClose={onClose} dismissible={false}>
       <div className='flex flex-col gap-6'>
         <p className='text-section font-bold break-all'>{fileName}</p>
         <div className='flex gap-3'>
           <Metric label='구간' value={`${segmentCount}개`} />
           <Metric label='길이' value={formatDuration(totalSeconds)} />
         </div>
-        <p className='text-muted'>영상과 자막 저장 중</p>
+        <p className='text-muted'>영상과 자막 저장 중이에요. 완료될 때까지 기다려 주세요.</p>
         <div className='flex flex-col gap-3'>
           <Metric label='진행률' value={`${progress}%`} tone='success' />
           <ProgressBar value={progress} />
